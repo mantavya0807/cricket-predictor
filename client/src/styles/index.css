@@ -1,0 +1,56 @@
+/* src/styles/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-primary-dark text-gray-100;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply px-4 py-2 rounded-lg transition-colors;
+  }
+
+  .btn-primary {
+    @apply bg-accent-main text-white hover:bg-accent-dark;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-primary-dark;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-primary-light rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-accent-main;
+}
+
+/* Animations */
+.fade-enter {
+  opacity: 0;
+}
+
+.fade-enter-active {
+  opacity: 1;
+  transition: opacity 200ms ease-in;
+}
+
+.fade-exit {
+  opacity: 1;
+}
+
+.fade-exit-active {
+  opacity: 0;
+  transition: opacity 200ms ease-in;
+}
