@@ -6,16 +6,11 @@ const MatchService = require('../services/matchService');
 // GET /api/matches - Get all matches
 router.get('/', async (req, res) => {
     try {
-        const [liveMatches, upcomingMatches] = await Promise.all([
-            MatchService.getLiveMatches(),
-            MatchService.getUpcomingMatches()
-        ]);
-
-        res.json({
-            liveMatches,
-            upcomingMatches
-        });
+        const matches = await MatchService.scrapeLiveMatches();
+        const upcomingMatches = await MatchService.scrapeUpcomingMatches();
+        res.json(matches);
     } catch (error) {
+        console.log('Error fetching matches:', error);
         console.error('Error fetching matches:', error);
         res.status(500).json({ error: 'Failed to fetch matches' });
     }
@@ -24,8 +19,10 @@ router.get('/', async (req, res) => {
 // GET /api/matches/live - Get live matches
 router.get('/live', async (req, res) => {
     try {
-        const liveMatches = await MatchService.getLiveMatches();
-        res.json(liveMatches);
+        console.log('Fetching live matches...');
+        await MatchService.scrapeLiveMatches(); // First scrape the live matches
+        const matches = await MatchService.getLiveMatches(); // Then get the live matches
+        res.json(matches);
     } catch (error) {
         console.error('Error fetching live matches:', error);
         res.status(500).json({ error: 'Failed to fetch live matches' });
@@ -35,14 +32,27 @@ router.get('/live', async (req, res) => {
 // GET /api/matches/upcoming - Get upcoming matches
 router.get('/upcoming', async (req, res) => {
     try {
-        const upcomingMatches = await MatchService.getUpcomingMatches();
-        res.json(upcomingMatches);
+        console.log('Fetching upcoming matches...');
+        const matches = await MatchService.getUpcomingMatches();
+        res.json(matches);
     } catch (error) {
         console.error('Error fetching upcoming matches:', error);
         res.status(500).json({ error: 'Failed to fetch upcoming matches' });
     }
 });
-
+// GET /api/matches/:matchId/squad
+router.get('/:matchId/squad', async (req, res) => {
+    try {
+        const squad = await MatchService.getMatchSquad(req.params.matchId);
+        if (!squad) {
+            return res.status(404).json({ error: 'Squad not found' });
+        }
+        res.json(squad);
+    } catch (error) {
+        console.error('Error fetching squad:', error);
+        res.status(500).json({ error: 'Failed to fetch squad information' });
+    }
+});
 // POST /api/matches/refresh - Force refresh matches
 router.post('/refresh', async (req, res) => {
     try {

@@ -129,74 +129,31 @@ class ScraperUtil {
     }
 
     async getPage(url) {
-        await this.initialize();
+        const browser = await puppeteer.launch({
+            headless: true,
+            args: ['--no-sandbox']
+        });
+        const page = await browser.newPage();
         console.log('Creating new page...');
-        const page = await this.browser.newPage();
-        
-        // Set longer timeout
-        await page.setDefaultNavigationTimeout(60000);
-        await page.setDefaultTimeout(60000);
-        
-        // Add stealth mode
-        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-        
-        try {
-            console.log('Navigating to:', url);
-            await page.goto(url, { 
-                waitUntil: 'networkidle0',
-                timeout: 60000 
-            });
-            console.log('Navigation complete');
-            return page;
-        } catch (error) {
-            console.error('Error during page navigation:', error);
-            await page.close();
-            throw error;
-        }
+        await page.goto(url, { waitUntil: 'networkidle0' });
+        console.log('Navigation complete');
+        return page;
     }
 
     parseMatchType(seriesName) {
-        if (!seriesName) return 'OTHER';
-        
-        const lowerSeriesName = seriesName.toLowerCase();
-        
-        // Check series mapping
-        for (const [key, type] of Object.entries(this.seriesTypeMap)) {
-            if (lowerSeriesName.includes(key)) {
-                return type;
-            }
-        }
-
-        // Additional heuristic checks
-        if (lowerSeriesName.includes('women') || lowerSeriesName.includes('womens')) {
-            if (lowerSeriesName.includes('test')) return 'TEST';
-            if (lowerSeriesName.includes('odi')) return 'ODI';
-            if (lowerSeriesName.includes('t20') || lowerSeriesName.includes('t20i')) return 'T20';
-        }
-
-        if (lowerSeriesName.includes('vs')) {
-            if (lowerSeriesName.includes('test')) return 'TEST';
-            if (lowerSeriesName.includes('odi')) return 'ODI';
-            if (lowerSeriesName.includes('t20') || lowerSeriesName.includes('t20i')) return 'T20';
-        }
-
-        // Default to OTHER if no match found
-        console.log('Unknown series type:', seriesName);
+        if (/Test/i.test(seriesName)) return 'TEST';
+        if (/ODI/i.test(seriesName)) return 'ODI';
+        if (/T20/i.test(seriesName)) return 'T20';
         return 'OTHER';
     }
 
-    generateMatchId(team1, team2, startTime) {
-        const date = new Date(startTime).toISOString().split('T')[0];
-        return `${team1}-${team2}-${date}`.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    generateMatchId(team1, team2, date) {
+        // Simple ID generation logic
+        return `${team1.replace(/\s+/g, '-').toLowerCase()}-${team2.replace(/\s+/g, '-').toLowerCase()}-${new Date(date).getTime()}`;
     }
 
     async close() {
-        if (this.browser) {
-            console.log('Closing browser...');
-            await this.browser.close();
-            this.browser = null;
-            console.log('Browser closed');
-        }
+        // Implement if there's a shared browser instance
     }
 }
 

@@ -1,5 +1,5 @@
 const puppeteer = require('puppeteer');
-const Team = require('../../../models/Team');
+const Team = require('../../models/Team');
 const scraperUtil = require('../../utils/scraper');
 const Match = require('../../models/Match');
 
@@ -12,12 +12,19 @@ class UpcomingMatchScraper {
         let browser;
         let page;
         try {
+            console.log('Starting to scrape upcoming matches...');
             browser = await puppeteer.launch({
                 headless: true,
                 args: ['--no-sandbox']
             });
             page = await browser.newPage();
-            await page.goto(`${this.BASE_URL}/cricket-schedule/upcoming-series/all`, { waitUntil: 'networkidle2', timeout: 60000 });
+
+            // Navigate to upcoming matches page
+            console.log('Navigating to upcoming matches page...');
+            await page.goto(`${this.BASE_URL}/cricket-schedule/upcoming-series/all`, { 
+                waitUntil: 'networkidle2', 
+                timeout: 60000 
+            });
 
             // Wait for the content to load
             await page.waitForSelector('.cb-col-100.cb-col', { timeout: 60000 });
@@ -67,6 +74,10 @@ class UpcomingMatchScraper {
                                 const gmtTimeDiv = timeDiv ? timeDiv.querySelector('.cb-font-12') : null;
                                 const gmtTime = gmtTimeDiv ? gmtTimeDiv.textContent.trim() : '';
 
+                                // Get the match URL
+                                const baseMatchUrl = matchLink.getAttribute('href');
+                                const matchUrl = baseMatchUrl ? `https://www.cricbuzz.com${baseMatchUrl}` : '';
+
                                 matches.push({
                                     date,
                                     seriesName,
@@ -74,7 +85,8 @@ class UpcomingMatchScraper {
                                     team2: teams[1].split(',')[0].trim(),
                                     venue,
                                     timeInfo,
-                                    gmtTime
+                                    gmtTime,
+                                    matchUrl
                                 });
                             });
                         } catch (error) {
@@ -83,15 +95,12 @@ class UpcomingMatchScraper {
                     });
                 });
 
-                console.log('Found total matches:', matches.length);
                 return matches;
             });
 
-            console.log('Page evaluation completed');
-            console.log('Total matches found:', matches.length);
+            console.log(`Found ${matches.length} upcoming matches`);
 
             // Process and store matches
-            console.log('Processing matches for storage...');
             const processedMatches = [];
             for (const match of matches) {
                 try {
@@ -111,110 +120,34 @@ class UpcomingMatchScraper {
                         startTime: new Date(match.date + ' ' + match.timeInfo),
                         gmtTime: match.gmtTime,
                         status: 'UPCOMING',
-                        lastUpdated: new Date()
+                        lastUpdated: new Date(),
+                        matchUrl: match.matchUrl
                     };
 
-                    console.log('Attempting to save match to database:', matchId);
+                    console.log(`Saving match: ${match.team1} vs ${match.team2}`);
                     const savedMatch = await Match.findOneAndUpdate(
                         { matchId },
                         matchData,
                         { upsert: true, new: true }
                     );
-                    console.log('Successfully saved match:', savedMatch._id);
                     
                     processedMatches.push(savedMatch);
-                    console.log('Processed match:', match.team1, 'vs', match.team2);
                 } catch (error) {
                     console.error('Error processing match:', match, error);
                 }
             }
 
-            // After saving matches, scrape squads for each team
-            const squads = await this.scrapeSquads(page, matches);
-
-            // Save squads to Team model
-            for (const [teamName, squadArray] of Object.entries(squads)) {
-                await Team.findOneAndUpdate(
-                    { name: teamName },
-                    { squad: squadArray },
-                    { upsert: true, new: true }
-                );
-            }
-
-            console.log('Scraping completed successfully');
+            console.log(`Successfully processed ${processedMatches.length} matches`);
             return processedMatches;
 
         } catch (error) {
-            console.error('Error during scraping:', error);
+            console.error('Error during upcoming matches scraping:', error);
             throw error;
         } finally {
-            if (page) {
-                console.log('Closing page');
-                await page.close();
-            }
-            if (browser) {
-                console.log('Closing browser');
-                await browser.close();
-            }
+            if (page) await page.close();
+            if (browser) await browser.close();
+            console.log('Closed browser');
         }
-    }
-
-    async scrapeSquads(page, matches) {
-        const squads = {};
-
-        for (const match of matches) {
-            try {
-                await page.goto(`${this.BASE_URL}${match.url}`, { waitUntil: 'networkidle2', timeout: 60000 });
-                await page.click('a[href*="cricket-match-squads"]');
-                await page.waitForSelector('.cb-col-100.cb-col', { timeout: 60000 });
-
-                const squadInfo = await page.evaluate(() => {
-                    const teams = document.querySelectorAll('.cb-minfo-tm-nm');
-                    const squadLists = document.querySelectorAll('.cb-minfo-tm-plyr');
-
-                    const extractPlayers = (squadList) => {
-                        const players = [];
-                        const playerElements = squadList.querySelectorAll('div');
-
-                        playerElements.forEach(player => {
-                            const text = player.textContent.trim();
-                            const isCaptain = text.includes('(c)');
-                            const isWicketkeeper = text.includes('(wk)');
-                            const name = text.replace('(c)', '').replace('(wk)', '').trim();
-
-                            players.push({
-                                name,
-                                role: '',
-                                isCaptain,
-                                isWicketkeeper
-                            });
-                        });
-
-                        return players;
-                    };
-
-                    return {
-                        team1: {
-                            name: teams[0]?.textContent.trim() || '',
-                            players: extractPlayers(squadLists[0])
-                        },
-                        team2: {
-                            name: teams[1]?.textContent.trim() || '',
-                            players: extractPlayers(squadLists[1])
-                        }
-                    };
-                });
-
-                squads[squadInfo.team1.name] = squadInfo.team1.players;
-                squads[squadInfo.team2.name] = squadInfo.team2.players;
-
-                console.log(`Scraped squads for ${squadInfo.team1.name} and ${squadInfo.team2.name}`);
-            } catch (error) {
-                console.error(`Error scraping squads for match ${match.id}:`, error);
-            }
-        }
-
-        return squads;
     }
 }
 

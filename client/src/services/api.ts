@@ -1,97 +1,45 @@
 // src/services/api.ts
-import axios, { AxiosError } from 'axios';
-import { Match } from '../types/match';
+import axios from 'axios';
+import type { Match } from '../types/match';
+import type { Player } from '../types/player';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
-
-// Create axios instance with configuration
-const api = axios.create({
-    baseURL: API_BASE_URL,
-    headers: {
-        'Content-Type': 'application/json',
-    },
-    timeout: 10000, // 10 second timeout
-    // Retry configuration
-    validateStatus: (status) => status < 500, // Retry only on network or 500+ errors
-});
-
-// Add retry interceptor
-api.interceptors.response.use(undefined, async (err: AxiosError) => {
-    const { config } = err;
-    if (!config || !config.retry) {
-        return Promise.reject(err);
-    }
-
-    config.retry -= 1;
-    if (config.retry === 0) {
-        return Promise.reject(err);
-    }
-
-    // Exponential back-off
-    const backoff = new Promise(resolve => {
-        setTimeout(() => {
-            resolve(null);
-        }, config.retryDelay || 1000);
-    });
-
-    await backoff;
-    return api(config);
-});
-
-// Add request interceptor to add retry config to all requests
-api.interceptors.request.use(
-    (config) => {
-        config.retry = 3; // Number of retries
-        config.retryDelay = 1000; // Start with 1s delay
-        return config;
-    },
-    (error) => {
-        return Promise.reject(error);
-    }
-);
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 export const MatchService = {
     getLiveMatches: async (): Promise<Match[]> => {
-        try {
-            // First check if API is available
-            await api.get('/health');
-            const response = await api.get('/matches/live');
-            return response.data;
-        } catch (error) {
-            console.error('Error fetching live matches:', error);
-            // Return empty array instead of throwing
-            return [];
-        }
+        const response = await axios.get(`${API_BASE_URL}/matches/live`);
+        return response.data;
     },
 
     getUpcomingMatches: async (): Promise<Match[]> => {
-        try {
-            await api.get('/health');
-            const response = await api.get('/matches/upcoming');
-            return response.data;
-        } catch (error) {
-            console.error('Error fetching upcoming matches:', error);
-            return [];
-        }
+        const response = await axios.get(`${API_BASE_URL}/matches/upcoming`);
+        return response.data;
     },
 
-    getMatchDetails: async (matchId: string): Promise<Match | null> => {
+    getMatchSquad: async (matchId: string) => {
         try {
-            const response = await api.get(`/matches/${matchId}`);
+            const response = await axios.get(`${API_BASE_URL}/players/match/${matchId}`);
             return response.data;
         } catch (error) {
-            console.error('Error fetching match details:', error);
-            return null;
+            console.error('Error fetching squad:', error);
+            throw error;
         }
     },
 
     refreshMatches: async (): Promise<void> => {
-        try {
-            await api.post('/matches/refresh');
-        } catch (error) {
-            console.error('Error refreshing matches:', error);
-            throw error;
-        }
+        await axios.post(`${API_BASE_URL}/matches/refresh`);
+    }
+};
+
+export const PlayerService = {
+    getPlayerDetails: async (playerId: string): Promise<Player> => {
+        const response = await axios.get(`${API_BASE_URL}/players/${playerId}`);
+        return response.data;
+    },
+
+    getPlayersByRole: async (role: string): Promise<Player[]> => {
+        const response = await axios.get(`${API_BASE_URL}/players/role/${role}`);
+        return response.data;
     }
 };
 

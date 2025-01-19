@@ -4,6 +4,7 @@ const router = express.Router();
 const Match = require('../models/Match');
 const liveMatchScraper = require('../services/scrapers/liveMatchScraper');
 const upcomingMatchScraper = require('../services/scrapers/upcomingMatchScraper');
+const enhancedScraper = require('../services/scrapers/enhancedScraper');
 
 // GET /api/matches - Get all matches
 router.get('/', async (req, res) => {
@@ -78,6 +79,20 @@ router.post('/refresh', async (req, res) => {
     } catch (error) {
         console.error('Error refreshing matches:', error);
         res.status(500).json({ error: 'Failed to refresh matches' });
+    }
+});
+
+// GET /api/matches/:matchId/squad
+router.get('/:matchId/squad', async (req, res) => {
+    try {
+        const squad = await enhancedScraper.getSquadInfo(req.params.matchId);
+        if (!squad) {
+            return res.status(404).json({ error: 'Squad not found' });
+        }
+        res.json(squad);
+    } catch (error) {
+        console.error('Error fetching squad:', error);
+        res.status(500).json({ error: 'Failed to fetch squad information' });
     }
 });
 

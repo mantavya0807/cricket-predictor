@@ -6,6 +6,7 @@ const dotenv = require('dotenv');
 const matchesRouter = require('./routes/matches');
 const squadRouter = require('./routes/squads'); // This will now work
 const teamsRouter = require('./routes/teams'); // Add teams router
+const playerRouter = require('./routes/players'); // Update route
 
 // Load environment variables
 dotenv.config();
@@ -20,28 +21,22 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // MongoDB connection with updated configuration
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/cricket-predictor', {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    serverSelectionTimeoutMS: 30000, // Increase timeout to 30 seconds
-    socketTimeoutMS: 45000, // Increase socket timeout
-    family: 4, // Use IPv4, skip trying IPv6
-    maxPoolSize: 10 // Limit number of connections
-})
-.then(() => {
+mongoose.connect('mongodb://127.0.0.1:27017/cricket-predictor')
+  .then(() => {
     console.log('Connected to MongoDB');
     // Start server only after successful database connection
     startServer();
-})
-.catch((err) => {
+  })
+  .catch((err) => {
     console.error('MongoDB connection error:', err);
     process.exit(1); // Exit if database connection fails
-});
+  });
 
 // Routes
 app.use('/api/matches', matchesRouter);
 app.use('/api/squads', squadRouter);  // Add this route
 app.use('/api/teams', teamsRouter); // Add teams route
+app.use('/api/players', playerRouter); // Update route
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -65,7 +60,7 @@ app.use((err, req, res, next) => {
 
 // Start server function
 function startServer() {
-    const PORT = process.env.PORT || 3000;
+    const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);
     });

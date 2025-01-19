@@ -56,6 +56,10 @@ const matchSchema = new mongoose.Schema({
     lastUpdated: {
         type: Date,
         default: Date.now
+    },
+    matchUrl: {
+        type: String,
+        required: true
     }
 }, {
     timestamps: true
@@ -64,10 +68,6 @@ const matchSchema = new mongoose.Schema({
 // Create compound index for efficient queries
 matchSchema.index({ status: 1, startTime: 1 });
 
-// Virtual for match URL (if needed later)
-matchSchema.virtual('matchUrl').get(function() {
-    return `https://www.cricbuzz.com/cricket-matches/${this.matchId}`;
-});
 
 const Match = mongoose.model('Match', matchSchema);
 
